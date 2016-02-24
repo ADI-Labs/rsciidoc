@@ -1,0 +1,8 @@
+# rsciidoc
+|=====
+image:https://travis-ci.org/ADI-Labs/rsciidoc.svg?branch=master["Build Status", link="https://travis-ci.org/ADI-Labs/rsciidoc"]
+|=====
+
+Rust Library for Asciidoc
+
+
