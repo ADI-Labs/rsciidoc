@@ -1,0 +1,12 @@
+sudo: false
+language: rust
+rust:
+    - nightly
+    - beta
+    - stable
+cache:
+    directories:
+        - $HOME/.cargo
+
+notifications:
+    email: false
