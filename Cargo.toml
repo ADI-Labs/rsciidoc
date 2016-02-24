@@ -1,0 +1,10 @@
+[package]
+name = "rsciidoc"
+version = "0.1.0"
+authors = [
+    "Andrew Aday <andrewladay@gmail.com>",
+    "Alan Du <alanhdu@gmail.com>",
+    "Dennis Wei <dw2654@columbia.edu>",
+]
+
+[dependencies]
