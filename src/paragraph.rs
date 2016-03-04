@@ -15,10 +15,13 @@ impl Paragraph {
     }
 
     pub fn to_html(&self) -> String {
-        self.parts.iter().map(|text| match text {
-            &Text::Plain(ref s) => s.to_string(),
-            &Text::Bold(ref s) => ["<strong>", &s[..], "</strong>"].join("").to_string(),
-        }).collect::<Vec<_>>().join("")
+        self.parts.iter()
+            .map(|text| match *text {
+                Text::Plain(ref s) => s.to_string(),
+                Text::Bold(ref s) => ["<strong>", &s[..], "</strong>"].concat(),
+            })
+            .collect::<Vec<_>>()
+            .concat()
     }
 }
 
