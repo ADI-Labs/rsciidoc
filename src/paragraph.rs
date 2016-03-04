@@ -2,7 +2,7 @@ pub struct Paragraph {
     parts: Vec<Text>,
 }
 
-enum Text {
+pub enum Text {
     Plain(String),      // TODO: make these &str and figure out lifetimes
     Bold(String),
 }
@@ -18,5 +18,23 @@ impl Paragraph {
         let s = String::new();
 
         s
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let p = Paragraph::new("hello world");
+    }
+
+    #[test]
+    fn test_html() {
+        let p = Paragraph {
+            parts: vec![Text::Plain("plaintext".to_owned()),
+                        Text::Bold("bold text".to_owned())],
+        };
     }
 }
