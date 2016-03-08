@@ -8,14 +8,12 @@ pub struct Document {
 impl Document {
     pub fn new(text: &str) -> Document {
         Document {
-            metadata: metadata::Metadata{},
+            metadata: metadata::Metadata{ author: "".to_owned() },
         }
     }
 
     pub fn to_html(&self) -> String {
-        let s = String::new();
-
-        s
+        String::new()
     }
 }
 

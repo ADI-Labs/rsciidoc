@@ -15,9 +15,13 @@ impl Paragraph {
     }
 
     pub fn to_html(&self) -> String {
-        let s = String::new();
-
-        s
+        self.parts.iter()
+            .map(|text| match *text {
+                Text::Plain(ref s) => s.to_string(),
+                Text::Bold(ref s) => ["<strong>", &s[..], "</strong>"].concat(),
+            })
+            .collect::<Vec<_>>()
+            .concat()
     }
 }
 
@@ -31,10 +35,12 @@ mod test {
     }
 
     #[test]
-    fn test_html() {
+    fn test_html1() {
         let p = Paragraph {
-            parts: vec![Text::Plain("plaintext".to_owned()),
+            parts: vec![Text::Plain("plaintext ".to_owned()),
                         Text::Bold("bold text".to_owned())],
         };
+
+        assert!(p.to_html() == "plaintext <strong>bold text</strong>".to_owned());
     }
 }
