@@ -1,14 +1,22 @@
 mod metadata;
 mod paragraph;
+mod list;
 
-pub struct Document {
+pub struct Document<'a> {
     metadata: metadata::Metadata,
+    content: Vec<DocumentPart<'a>>,
 }
 
-impl Document {
-    pub fn new(text: &str) -> Document {
+pub enum DocumentPart<'a> {
+    Paragraph(paragraph::Paragraph<'a>),
+    List(list::List),
+}
+
+impl<'a> Document<'a> {
+    pub fn new(text: &'a str) -> Document<'a> {
         Document {
             metadata: metadata::Metadata{ author: "".to_owned() },
+            content: Vec::new(),
         }
     }
 

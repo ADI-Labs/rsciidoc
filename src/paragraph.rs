@@ -1,24 +1,18 @@
-pub struct Paragraph {
-    parts: Vec<Text>,
+pub struct Paragraph<'a> {
+    parts: Vec<Text<'a>>,
 }
 
-pub enum Text {
-    Plain(String),      // TODO: make these &str and figure out lifetimes
-    Bold(String),
+pub enum Text<'a> {
+    Plain(&'a str),      // TODO: make these &str and figure out lifetimes
+    Italics(&'a str),
 }
 
-impl Paragraph {
-    pub fn new(text: &str) -> Paragraph {
-        Paragraph {
-            parts: Vec::new(),
-        }
-    }
-
+impl<'a> Paragraph<'a> {
     pub fn to_html(&self) -> String {
         self.parts.iter()
             .map(|text| match *text {
                 Text::Plain(ref s) => s.to_string(),
-                Text::Bold(ref s) => ["<strong>", &s[..], "</strong>"].concat(),
+                Text::Italics(ref s) => ["<em>", &s[..], "</em>"].concat(),
             })
             .collect::<Vec<_>>()
             .concat()
@@ -30,17 +24,12 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_parse() {
-        let p = Paragraph::new("hello world");
-    }
-
-    #[test]
     fn test_html1() {
         let p = Paragraph {
-            parts: vec![Text::Plain("plaintext ".to_owned()),
-                        Text::Bold("bold text".to_owned())],
+            parts: vec![Text::Plain("plaintext "),
+                        Text::Italics("italics text")],
         };
 
-        assert!(p.to_html() == "plaintext <strong>bold text</strong>".to_owned());
+        assert!(p.to_html() == "plaintext <em>italics text</em>".to_owned());
     }
 }
