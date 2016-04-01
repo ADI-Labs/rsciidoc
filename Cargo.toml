@@ -8,3 +8,4 @@ authors = [
 ]
 
 [dependencies]
+nom = "^1.2.2"
