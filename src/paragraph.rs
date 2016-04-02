@@ -1,7 +1,7 @@
 use nom::*;
 use std::str;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Paragraph<'a> {
     parts: Vec<Text<'a>>,
 }
@@ -9,7 +9,7 @@ pub struct Paragraph<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Text<'a> {
     Plain(&'a str),
-    Bold(&'a str),
+    Bold(Paragraph<'a>),
 }
 
 impl<'a> Paragraph<'a> {
@@ -17,7 +17,7 @@ impl<'a> Paragraph<'a> {
         self.parts.iter()
             .map(|text| match *text {
                 Text::Plain(ref s) => s.to_string(),
-                Text::Bold(ref s) => ["<em>", &s[..], "</em>"].concat(),
+                Text::Bold(ref p) => ["<strong>", &p.to_html(), "</strong>"].concat(),
             })
             .collect::<Vec<_>>()
             .concat()
@@ -31,46 +31,27 @@ named!(paragraph<Paragraph>,
     )
 );
 
+named!(only_paragraph<Paragraph>, complete!(paragraph));
+
 named!(plain<Text>,
     chain!(
-        bytes: is_not!("*") ~
-        s:     expr_res!(str::from_utf8(bytes)),
+        s: map_res!(is_not!("*"), str::from_utf8),
         || { Text::Plain(s) }
     )
 );
 
 named!(bold<Text>,
-    delimited!(
-        char!('*'),
-        chain!(
-            bytes: is_not!("*") ~
-            s:     expr_res!(str::from_utf8(bytes)),
-            || { Text::Bold(s) }
-        ),
-        char!('*')
+    map_res!(
+        delimited!(char!('*'), is_not!("*"), char!('*')),
+        |bytes| {
+            match only_paragraph(bytes) {
+                IResult::Done(input, output) => Ok(Text::Bold(output)),
+                IResult::Error(err) => Err(err),
+                _ => panic!("Nom complete! macro returned an IResult::Incomplete")
+            }
+        }
     )
 );
-
-
-#[test]
-fn test_paragraph_parse() {
-    if let IResult::Done(input, output) = paragraph(b"Hello *World*") {
-        assert_eq!(input, b"");
-        assert_eq!(output.parts, vec![Text::Plain("Hello "),
-                                      Text::Bold("World")]);
-    } else {
-        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
-    }
-
-    if let IResult::Done(input, output) = paragraph(b"*This* is *a test*") {
-        assert_eq!(input, b"");
-        assert_eq!(output.parts, vec![Text::Bold("This"),
-                                      Text::Plain(" is "),
-                                      Text::Bold("a test")]);
-    } else {
-        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
-    }
-}
 
 #[test]
 fn test_plain_parse() {
@@ -88,20 +69,12 @@ fn test_plain_parse() {
 }
 
 #[test]
-fn test_html1() {
-    let p = Paragraph {
-        parts: vec![Text::Plain("plaintext "),
-                    Text::Bold("bold text")],
-    };
-
-    assert!(p.to_html() == "plaintext <em>bold text</em>".to_owned());
-}
-
-#[test]
 fn test_bold_parse() {
     if let IResult::Done(input, output) = bold(b"*Hello* World") {
         assert_eq!(input, b" World");
-        assert_eq!(output, Text::Bold("Hello"));
+        assert_eq!(output, Text::Bold(Paragraph {
+            parts: vec![Text::Plain("Hello")]
+        }));
     } else {
         panic!(r#" Bold failed with "*Hello* World" "#);
     }
@@ -118,12 +91,39 @@ fn test_bold_parse() {
 }
 
 #[test]
-#[should_panic]                 // TODO: Fix
-fn test_bold_escaped() {
-    if let IResult::Done(input, output) = bold(br"*Hell\*o* World") {
-        assert_eq!(output, Text::Bold("Hell*o"));
-        assert_eq!(input, b" World");
+fn test_paragraph_parse() {
+    if let IResult::Done(input, output) = paragraph(b"Hello *World*") {
+        assert_eq!(input, b"");
+        assert_eq!(output.parts, vec![
+            Text::Plain("Hello "),
+            Text::Bold(Paragraph {parts: vec![Text::Plain("World")]}),
+        ]);
     } else {
-        panic!("Bold failed with \"*Hell\\*o* World");
+        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
     }
+
+    if let IResult::Done(input, output) = paragraph(b"*This* *is* *a* *test*") {
+        assert_eq!(input, b"");
+        assert_eq!(output.parts, vec![
+            Text::Bold(Paragraph {parts: vec![Text::Plain("This")]}),
+            Text::Plain(" "),
+            Text::Bold(Paragraph {parts: vec![Text::Plain("is")]}),
+            Text::Plain(" "),
+            Text::Bold(Paragraph {parts: vec![Text::Plain("a")]}),
+            Text::Plain(" "),
+            Text::Bold(Paragraph {parts: vec![Text::Plain("test")]}),
+        ]);
+    } else {
+        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
+    }
+}
+
+#[test]
+fn test_html1() {
+    let p = Paragraph { parts: vec![
+            Text::Plain("plaintext "),
+            Text::Bold(Paragraph { parts: vec![Text::Plain("bold text")]})
+    ]};
+
+    assert!(p.to_html() == "plaintext <strong>bold text</strong>".to_owned());
 }
