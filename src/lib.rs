@@ -1,37 +1,41 @@
 #[macro_use]
 extern crate nom;
 
-mod metadata;
+use nom::IResult;
+
 mod paragraph;
-mod list;
 
 pub struct Document<'a> {
-    metadata: metadata::Metadata,
-    content: Vec<DocumentPart<'a>>,
+    content: Vec<DocPart<'a>>,
 }
 
-pub enum DocumentPart<'a> {
+enum DocPart<'a> {
     Paragraph(paragraph::Paragraph<'a>),
-    List(list::List),
 }
+
+named!(parse_document<Document>,
+    complete!(map!(
+        many1!(
+            map!(paragraph::parse_paragraph, DocPart::Paragraph)
+        ),
+        |vec| Document {content: vec}
+    ))
+);
 
 impl<'a> Document<'a> {
     pub fn new(text: &'a str) -> Document<'a> {
-        Document {
-            metadata: metadata::Metadata{ author: "".to_owned() },
-            content: Vec::new(),
+        match parse_document(text.as_bytes()) {
+            IResult::Done(_, output) => output,
+            _ => panic!("Parsing failed")
         }
     }
 
     pub fn to_html(&self) -> String {
-        String::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert!(1 == 1);
+        self.content.iter()
+            .map(|part| match *part {
+                DocPart::Paragraph(ref p) => p.to_html()
+            })
+            .collect::<Vec<_>>()
+            .concat()
     }
 }
