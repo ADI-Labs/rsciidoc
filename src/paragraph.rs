@@ -9,7 +9,7 @@ pub struct Paragraph<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Text<'a> {
     Plain(&'a str),
-    Italics(&'a str),
+    Bold(&'a str),
 }
 
 impl<'a> Paragraph<'a> {
@@ -17,7 +17,7 @@ impl<'a> Paragraph<'a> {
         self.parts.iter()
             .map(|text| match *text {
                 Text::Plain(ref s) => s.to_string(),
-                Text::Italics(ref s) => ["<em>", &s[..], "</em>"].concat(),
+                Text::Bold(ref s) => ["<em>", &s[..], "</em>"].concat(),
             })
             .collect::<Vec<_>>()
             .concat()
@@ -26,7 +26,7 @@ impl<'a> Paragraph<'a> {
 
 named!(paragraph<Paragraph>,
     chain!(
-        vec: many1!(alt!(plain | italics)),
+        vec: many1!(alt!(plain | bold)),
         || { Paragraph { parts: vec } }
     )
 );
@@ -39,13 +39,13 @@ named!(plain<Text>,
     )
 );
 
-named!(italics<Text>,
+named!(bold<Text>,
     delimited!(
         char!('*'),
         chain!(
             bytes: is_not!("*") ~
             s:     expr_res!(str::from_utf8(bytes)),
-            || { Text::Italics(s) }
+            || { Text::Bold(s) }
         ),
         char!('*')
     )
@@ -57,16 +57,16 @@ fn test_paragraph_parse() {
     if let IResult::Done(input, output) = paragraph(b"Hello *World*") {
         assert_eq!(input, b"");
         assert_eq!(output.parts, vec![Text::Plain("Hello "),
-                                      Text::Italics("World")]);
+                                      Text::Bold("World")]);
     } else {
         panic!(r#" Paragraph parse failed with "Hello *World*" "#);
     }
 
     if let IResult::Done(input, output) = paragraph(b"*This* is *a test*") {
         assert_eq!(input, b"");
-        assert_eq!(output.parts, vec![Text::Italics("This"),
+        assert_eq!(output.parts, vec![Text::Bold("This"),
                                       Text::Plain(" is "),
-                                      Text::Italics("a test")]);
+                                      Text::Bold("a test")]);
     } else {
         panic!(r#" Paragraph parse failed with "Hello *World*" "#);
     }
@@ -91,39 +91,39 @@ fn test_plain_parse() {
 fn test_html1() {
     let p = Paragraph {
         parts: vec![Text::Plain("plaintext "),
-                    Text::Italics("italics text")],
+                    Text::Bold("bold text")],
     };
 
-    assert!(p.to_html() == "plaintext <em>italics text</em>".to_owned());
+    assert!(p.to_html() == "plaintext <em>bold text</em>".to_owned());
 }
 
 #[test]
-fn test_italics_parse() {
-    if let IResult::Done(input, output) = italics(b"*Hello* World") {
+fn test_bold_parse() {
+    if let IResult::Done(input, output) = bold(b"*Hello* World") {
         assert_eq!(input, b" World");
-        assert_eq!(output, Text::Italics("Hello"));
+        assert_eq!(output, Text::Bold("Hello"));
     } else {
-        panic!(r#" Italics failed with "*Hello* World" "#);
+        panic!(r#" Bold failed with "*Hello* World" "#);
     }
 
-    match italics(b"Hello World") {
+    match bold(b"Hello World") {
         IResult::Error(_) => (),
-        _ => panic!(r#" Italics failed with "Hello World" "#),
+        _ => panic!(r#" Bold failed with "Hello World" "#),
     };
 
-    match italics(b"*Hello World") {
+    match bold(b"*Hello World") {
         IResult::Incomplete(_) => (),
-        _ => panic!(r#" Italics failed with "*Hello World" "#),
+        _ => panic!(r#" Bold failed with "*Hello World" "#),
     }
 }
 
 #[test]
 #[should_panic]                 // TODO: Fix
-fn test_italics_escaped() {
-    if let IResult::Done(input, output) = italics(br"*Hell\*o* World") {
-        assert_eq!(output, Text::Italics("Hell*o"));
+fn test_bold_escaped() {
+    if let IResult::Done(input, output) = bold(br"*Hell\*o* World") {
+        assert_eq!(output, Text::Bold("Hell*o"));
         assert_eq!(input, b" World");
     } else {
-        panic!("Italics failed with \"*Hell\\*o* World");
+        panic!("Bold failed with \"*Hell\\*o* World");
     }
 }
