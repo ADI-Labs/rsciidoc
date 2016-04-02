@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate nom;
+
 mod metadata;
 mod paragraph;
 mod list;
