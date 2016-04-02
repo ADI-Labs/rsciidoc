@@ -1,3 +1,5 @@
 
-pub struct List {
+pub enum List {
+    Numbered,
+    Ordered,
 }
