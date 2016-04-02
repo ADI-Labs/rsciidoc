@@ -24,6 +24,21 @@ impl<'a> Paragraph<'a> {
     }
 }
 
+named!(paragraph<Paragraph>,
+    chain!(
+        vec: many1!(alt!(plain | italics)),
+        || { Paragraph { parts: vec } }
+    )
+);
+
+named!(plain<Text>,
+    chain!(
+        bytes: is_not!("*") ~
+        s:     expr_res!(str::from_utf8(bytes)),
+        || { Text::Plain(s) }
+    )
+);
+
 named!(italics<Text>,
     delimited!(
         char!('*'),
@@ -36,6 +51,41 @@ named!(italics<Text>,
     )
 );
 
+
+#[test]
+fn test_paragraph_parse() {
+    if let IResult::Done(input, output) = paragraph(b"Hello *World*") {
+        assert_eq!(input, b"");
+        assert_eq!(output.parts, vec![Text::Plain("Hello "),
+                                      Text::Italics("World")]);
+    } else {
+        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
+    }
+
+    if let IResult::Done(input, output) = paragraph(b"*This* is *a test*") {
+        assert_eq!(input, b"");
+        assert_eq!(output.parts, vec![Text::Italics("This"),
+                                      Text::Plain(" is "),
+                                      Text::Italics("a test")]);
+    } else {
+        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
+    }
+}
+
+#[test]
+fn test_plain_parse() {
+    if let IResult::Done(input, output) = plain(b"Hello *World*") {
+        assert_eq!(input, b"*World*");
+        assert_eq!(output, Text::Plain("Hello "));
+    } else {
+        panic!(r#" Plain parse failed with "Hello *World*" "#);
+    }
+
+    match plain(b"*Hello World*") {
+        IResult::Error(_) => (),
+        _ => panic!(r#" Plain failed with "*Hello World*" "#),
+    }
+}
 
 #[test]
 fn test_html1() {
