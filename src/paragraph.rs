@@ -10,14 +10,19 @@ pub struct Paragraph<'a> {
 enum Text<'a> {
     Plain(&'a str),
     Bold(Paragraph<'a>),
+    Italics(Paragraph<'a>),
 }
 
 impl<'a> Paragraph<'a> {
+    fn new(parts: Vec<Text>) -> Paragraph {
+        Paragraph {parts: parts}
+    }
     pub fn to_html(&self) -> String {
         self.parts.iter()
             .map(|text| match *text {
-                Text::Plain(ref s) => s.to_string(),
-                Text::Bold(ref p) => ["<strong>", &p.to_html(), "</strong>"].concat(),
+                Text::Plain(s)       => s.to_string(),
+                Text::Bold(ref p)    => ["<strong>", &p.to_html(), "</strong>"].concat(),
+                Text::Italics(ref p) => ["<em>", &p.to_html(), "</em>"].concat(),
             })
             .collect::<Vec<_>>()
             .concat()
@@ -26,21 +31,21 @@ impl<'a> Paragraph<'a> {
 
 named!(pub parse_paragraph<Paragraph>,
     map!(
-        many1!(alt!(plain | bold)),
-        |parts| Paragraph {parts: parts}
+        many1!(alt!(parse_bold | parse_italics | parse_plain)),
+        Paragraph::new
     )
 );
 
 named!(parse_only_paragraph<Paragraph>, complete!(parse_paragraph));
 
-named!(plain<Text>,
+named!(parse_plain<Text>,
     map!(
-        map_res!(is_not!("*"), str::from_utf8),
+        map_res!(is_not!("_*"), str::from_utf8),
         Text::Plain
     )
 );
 
-named!(bold<Text>,
+named!(parse_bold<Text>,
     map_res!(
         delimited!(char!('*'), is_not!("*"), char!('*')),
         |bytes| {
@@ -53,16 +58,28 @@ named!(bold<Text>,
     )
 );
 
+named!(parse_italics<Text>,
+    map_res!(
+        delimited!(char!('_'), is_not!("_"), char!('_')),
+        |bytes| {
+            match parse_only_paragraph(bytes) {
+                IResult::Done(_, output) => Ok(Text::Italics(output)),
+                IResult::Error(err) => Err(err),
+                _ => panic!("Nom complete! macro returned an IResult::Incomplete")
+            }
+        }
+    )
+);
+
 #[test]
 fn test_plain_parse() {
-    if let IResult::Done(input, output) = plain(b"Hello *World*") {
-        assert_eq!(input, b"*World*");
+    if let IResult::Done(b"*World*", output) = parse_plain(b"Hello *World*") {
         assert_eq!(output, Text::Plain("Hello "));
     } else {
         panic!(r#" Plain parse failed with "Hello *World*" "#);
     }
 
-    match plain(b"*Hello World*") {
+    match parse_plain(b"*Hello World*") {
         IResult::Error(_) => (),
         _ => panic!(r#" Plain failed with "*Hello World*" "#),
     }
@@ -70,21 +87,20 @@ fn test_plain_parse() {
 
 #[test]
 fn test_bold_parse() {
-    if let IResult::Done(input, output) = bold(b"*Hello* World") {
-        assert_eq!(input, b" World");
-        assert_eq!(output, Text::Bold(Paragraph {
-            parts: vec![Text::Plain("Hello")]
-        }));
+    if let IResult::Done(b" World", output) = parse_bold(b"*Hello* World") {
+        assert_eq!(output, Text::Bold(Paragraph::new(
+            vec![Text::Plain("Hello")]
+        )));
     } else {
         panic!(r#" Bold failed with "*Hello* World" "#);
     }
 
-    match bold(b"Hello World") {
+    match parse_bold(b"Hello World") {
         IResult::Error(_) => (),
         _ => panic!(r#" Bold failed with "Hello World" "#),
     };
 
-    match bold(b"*Hello World") {
+    match parse_bold(b"*Hello World") {
         IResult::Incomplete(_) => (),
         _ => panic!(r#" Bold failed with "*Hello World" "#),
     }
@@ -92,38 +108,34 @@ fn test_bold_parse() {
 
 #[test]
 fn test_paragraph_parse() {
-    if let IResult::Done(input, output) = parse_paragraph(b"Hello *World*") {
-        assert_eq!(input, b"");
+    let data = b"This *is _a_ serious* _test *of* this_ parser";
+    if let IResult::Done(remaining, output) = parse_paragraph(data) {
+        assert_eq!(remaining, b"");
+        println!("{:#?}", output.parts);
         assert_eq!(output.parts, vec![
-            Text::Plain("Hello "),
-            Text::Bold(Paragraph {parts: vec![Text::Plain("World")]}),
+            Text::Plain("This "),
+            Text::Bold(Paragraph::new(vec![
+                Text::Plain("is "),
+                Text::Italics(Paragraph::new(vec![Text::Plain("a")])),
+                Text::Plain(" serious"),
+            ])),
+            Text::Plain(" "),
+            Text::Italics(Paragraph::new(vec![
+                Text::Plain("test "),
+                Text::Bold(Paragraph::new(vec![Text::Plain("of")])),
+                Text::Plain(" this"),
+            ])),
+            Text::Plain(" parser")
         ]);
-    } else {
-        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
-    }
-
-    if let IResult::Done(input, output) = parse_paragraph(b"*This* *is* *a* *test*") {
-        assert_eq!(input, b"");
-        assert_eq!(output.parts, vec![
-            Text::Bold(Paragraph {parts: vec![Text::Plain("This")]}),
-            Text::Plain(" "),
-            Text::Bold(Paragraph {parts: vec![Text::Plain("is")]}),
-            Text::Plain(" "),
-            Text::Bold(Paragraph {parts: vec![Text::Plain("a")]}),
-            Text::Plain(" "),
-            Text::Bold(Paragraph {parts: vec![Text::Plain("test")]}),
-        ]);
-    } else {
-        panic!(r#" Paragraph parse failed with "Hello *World*" "#);
     }
 }
 
 #[test]
 fn test_html1() {
-    let p = Paragraph { parts: vec![
-            Text::Plain("plaintext "),
-            Text::Bold(Paragraph { parts: vec![Text::Plain("bold text")]})
-    ]};
+    let p = Paragraph::new(vec![
+        Text::Plain("plaintext "),
+        Text::Bold(Paragraph::new(vec![Text::Plain("bold text")]))
+    ]);
 
     assert!(p.to_html() == "plaintext <strong>bold text</strong>".to_owned());
 }
