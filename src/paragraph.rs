@@ -21,8 +21,8 @@ impl<'a> Paragraph<'a> {
         self.parts.iter()
             .map(|text| match *text {
                 Text::Plain(s)       => s.to_string(),
-                Text::Bold(ref p)    => ["<strong>", &p.to_html(), "</strong>"].concat(),
-                Text::Italics(ref p) => ["<em>", &p.to_html(), "</em>"].concat(),
+                Text::Bold(ref p)    => ["<strong>", &p.to_html()[..], "</strong>"].concat(),
+                Text::Italics(ref p) => ["<em>", &p.to_html()[..], "</em>"].concat(),
             })
             .collect::<Vec<_>>()
             .concat()
