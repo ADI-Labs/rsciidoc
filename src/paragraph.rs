@@ -71,6 +71,7 @@ named!(parse_italics<Text>,
     )
 );
 
+
 #[test]
 fn test_plain_parse() {
     if let IResult::Done(b"*World*", output) = parse_plain(b"Hello *World*") {
@@ -138,4 +139,16 @@ fn test_html1() {
     ]);
 
     assert!(p.to_html() == "plaintext <strong>bold text</strong>".to_owned());
+}
+
+#[test]
+fn test_integration() {
+    let data = b"This *is _a_ serious* _test *of* this_ parser";
+    if let IResult::Done(_, p) = parse_paragraph(data) {
+        assert_eq!(p.to_html(),
+            "This <strong>is <em>a</em> serious</strong> <em>test <strong>of</strong> this</em> parser"
+        );
+    } else {
+        panic!("Parse failed");
+    }
 }
